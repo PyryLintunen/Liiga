@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frisbeegolf Liigalaskuri</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            transition: 0.3s;
+        }
+        .tab-btn.active {
+            background-color: #2ecc71;
+            color: white;
+            border-color: #2ecc71;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: #34495e;
+            color: white;
+        }
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        .score-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🥏 Frisbeegolfin Liigalaskuri</h1>
+
+    <!-- Välilehdet -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('raaka')">Raakatulosliiga</button>
+        <button class="tab-btn" onclick="switchTab('tasoitus')">Tasoitusliiga</button>
+        <button class="tab-btn" onclick="switchTab('admin')">Syötä tuloksia</button>
+    </div>
+
+    <!-- Raakatulosnäkyvyys -->
+    <div id="raaka-view">
+        <h2>Kokonais-sarjataulukko (Raakatulos)</h2>
+        <table id="raaka-table">
+            <thead>
+                <tr>
+                    <th>Sija</th>
+                    <th>Pelaaja</th>
+                    <th>Omat Par</th>
+                    <th>Kokonaispisteet</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Tasoitusnäkyvyys -->
+    <div id="tasoitus-view" class="hidden">
+        <h2>Kokonais-sarjataulukko (Tasoitustulos)</h2>
+        <table id="tasoitus-table">
+            <thead>
+                <tr>
+                    <th>Sija</th>
+                    <th>Pelaaja</th>
+                    <th>Omat Par</th>
+                    <th>Kokonaispisteet</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Admin/Syöttönäkyvyys -->
+    <div id="admin-view" class="hidden">
+        <h2>Syötä radan tulokset</h2>
+        <div class="score-form">
+            <div class="form-group">
+                <label for="round-name">Radan/Osakilpailun nimi:</label>
+                <input type="text" id="round-name" placeholder="Esim. Keinukallio Väylä 1-18">
+            </div>
+            
+            <div id="players-scores-input">
+                <!-- Dynamically generated player score inputs -->
+            </div>
+
+            <button onclick="saveRound()">Tallenna kierros</button>
+        </div>
+    </div>
+
+    <script>
+        // Määritä liigan pelaajat ja heidän henkilökohtaiset par-tuloksensa tässä
+        let players = [
+            { id: 1, name: "Matti", personalPar: 54 },
+            { id: 2, name: "Antti", personalPar: 58 },
+            { id: 3, name: "Sanna", personalPar: 60 },
+            { id: 4, name: "Juho", personalPar: 52 },
+            { id: 5, name: "Laura", personalPar: 62 }
+        ];
+
+        // Kierrosten data ladataan selaimen muistista tai alustetaan tyhjäksi
+        let rounds = JSON.parse(localStorage.getItem('dg_rounds')) || [];
+
+        // Vaihtaa näkymää välilehtien välillä
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('raaka-view').classList.add('hidden');
+            document.getElementById('tasoitus-view').classList.add('hidden');
+            document.getElementById('admin-view').classList.add('hidden');
+
+            if (tab === 'raaka') {
+                document.getElementById('raaka-view').classList.remove('hidden');
+                event.target.classList.add('active');
+                renderLeaderboards();
+            } else if (tab === 'tasoitus') {
+                document.getElementById('tasoitus-view').classList.remove('hidden');
+                event.target.classList.add('active');
+                renderLeaderboards();
+            } else if (tab === 'admin') {
+                document.getElementById('admin-view').classList.remove('hidden');
+                event.target.classList.add('active');
+                buildScoreForm();
+            }
+        }
+
+        // Luo lomakkeen heittomäärien syöttämistä varten kaikille pelaajille
+        function buildScoreForm() {
+            const container = document.getElementById('players-scores-input');
+            container.innerHTML = '<h3>Pelaajien heittomäärät:</h3>';
+            players.forEach(p => {
+                container.innerHTML += `
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <label style="width: 150px;">${p.name} (Par: ${p.personalPar}):</label>
+                        <input type="number" id="score-p-${p.id}" min="1" placeholder="Heitot" required>
+                    </div>
+                `;
+            });
+        }
+
+        // Tallentaa syötetyn kierroksen LocalStorageen
+        function saveRound() {
+            const roundName = document.getElementById('round-name').value.trim();
+            if (!roundName) return alert("Anna radan nimi!");
+
+            let roundScores = [];
+            for (let p of players) {
+                const val = document.getElementById(`score-p-${p.id}`).value;
+                if (!val) return alert(`Muista syöttää tulos pelaajalle ${p.name}!`);
+                roundScores.push({
+                    playerId: p.id,
+                    throws: parseInt(val)
+                });
+            }
+
+            rounds.push({
+                name: roundName,
+                scores: roundScores
+            });
+
+            localStorage.setItem('dg_rounds', JSON.stringify(rounds));
+            alert("Kierros tallennettu onnistuneesti!");
+            
+            document.getElementById('round-name').value = '';
+            switchTab('raaka');
+        }
+
+        // Pisteytyslogiikka, joka huomioi uuden tasapelisäännön
+        function calculateLeaguePoints(isTasoitus) {
+            // Alustetaan jokaiselle pelaajalle 0 pistettä kuluvalle liigatyypille
+            let totalPoints = {};
+            players.forEach(p => totalPoints[p.id] = 0);
+
+            // Käydään jokainen pelattu kierros läpi erikseen
+            rounds.forEach(round => {
+                let roundResults = round.scores.map(s => {
+                    const player = players.find(p => p.id === s.playerId);
+                    // Jos kyseessä on tasoitusliiga, vähennetään heitoista pelaajan oma par
+                    const finalScore = isTasoitus ? (s.throws - player.personalPar) : s.throws;
+                    return { playerId: s.playerId, score: finalScore };
+                });
+
+                // Järjestetään kierroksen tulokset parhaasta (pienin) huonoimpaan (suurin)
+                roundResults.sort((a, b) => a.score - b.score);
+
+                const totalParticipants = roundResults.length;
+                let currentRankIndex = 0; // Seuraa uniikkeja tuloksia sijoituksissa
+
+                // Ryhmitellään pelaajat tulosten mukaan (tasapelit samaan nippuun)
+                let groupedResults = [];
+                roundResults.forEach(r => {
+                    let existingGroup = groupedResults.find(g => g.score === r.score);
+                    if (existingGroup) {
+                        existingGroup.playerIds.push(r.playerId);
+                    } else {
+                        groupedResults.push({ score: r.score, playerIds: [r.playerId] });
+                    }
+                });
+
+                // Jaetaan pisteet ryhmittäin uuden säännön mukaan
+                groupedResults.forEach((group, index) => {
+                    let pointsForThisRank = 0;
+                    if (index === 0) {
+                        pointsForThisRank = totalParticipants; // Paras tulos saa osallistujamäärän verran pisteitä
+                    } else if (index === groupedResults.length - 1) {
+                        pointsForThisRank = 0; // Viimeinen uniikki tulos saa aina 0 pistettä
+                    } else {
+                        pointsForThisRank = totalParticipants - (index + 1); // Muuten vähennetään 1 piste per sijoitusasteikko alaspäin
